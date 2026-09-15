@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Cronograma de Estudos</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen pb-12 flex flex-col justify-between">
+
+    <div>
+        <!-- Header -->
+        <header class="bg-slate-900 text-white py-6 shadow-md">
+            <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="book-open-check" class="w-8 h-8 text-blue-400"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-tight">Cronograma de Estudos</h1>
+                        <p class="text-xs text-slate-400">Gerencie suas tarefas e exporte para o Google Sheets / Excel</p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition">
+                        <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar CSV (Google Sheets)
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Formulário (Criar / Editar) -->
+            <section class="lg:col-span-1">
+                <div class="glass-card p-6 rounded-xl border border-slate-200 shadow-sm sticky top-6">
+                    <h2 id="formTitle" class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                        <i data-lucide="plus-circle" class="w-5 h-5 text-blue-600"></i> Nova Atividade
+                    </h2>
+                    
+                    <form id="studyForm" onsubmit="handleSubmit(event)" class="space-y-4">
+                        <input type="hidden" id="editIndex" value="-1">
+                        
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Matéria / Disciplina</label>
+                            <input type="text" id="subject" required placeholder="Ex: Arquitetura Cloud, Análise de Dados" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Tópico / Atividade</label>
+                            <input type="text" id="topic" required placeholder="Ex: Estudo de VPCs, Exercícios de Fixação" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Data</label>
+                                <input type="date" id="date" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Duração (hs)</label>
+                                <input type="number" step="0.5" id="hours" required placeholder="2.5" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Prioridade</label>
+                                <select id="priority" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="Baixa">Baixa</option>
+                                    <option value="Média" selected>Média</option>
+                                    <option value="Alta">Alta</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Status</label>
+                                <select id="status" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="Pendente">Pendente</option>
+                                    <option value="Em Andamento">Em Andamento</option>
+                                    <option value="Concluído">Concluído</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 flex gap-2">
+                            <button type="submit" id="btnSubmit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition flex justify-center items-center gap-2">
+                                <i data-lucide="save" class="w-4 h-4"></i> Salvar Atividade
+                            </button>
+                            <button type="button" id="btnCancel" onclick="resetForm()" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium px-3 py-2 rounded-lg text-sm transition">
+                                Cancelar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Tabela / Lista de Atividades -->
+            <section class="lg:col-span-2 space-y-4">
+                
+                <!-- Cards Resumo -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                        <span class="block text-xs text-slate-500 uppercase font-semibold">Total Atividades</span>
+                        <span id="statTotal" class="text-2xl font-bold text-slate-800">0</span>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                        <span class="block text-xs text-slate-500 uppercase font-semibold">Horas Previstas</span>
+                        <span id="statHours" class="text-2xl font-bold text-blue-600">0h</span>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                        <span class="block text-xs text-slate-500 uppercase font-semibold">Concluídas</span>
+                        <span id="statDone" class="text-2xl font-bold text-emerald-600">0</span>
+                    </div>
+                </div>
+
+                <!-- Tabela -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                        <h3 class="font-semibold text-slate-800">Atividades Agendadas</h3>
+                        <span class="text-xs text-slate-400">Armazenado no LocalStorage</span>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-500 uppercase text-xs">
+                                    <th class="p-4 border-b">Data</th>
+                                    <th class="p-4 border-b">Matéria</th>
+                                    <th class="p-4 border-b">Tópico</th>
+                                    <th class="p-4 border-b">Horas</th>
+                                    <th class="p-4 border-b">Prioridade</th>
+                                    <th class="p-4 border-b">Status</th>
+                                    <th class="p-4 border-b text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scheduleTable" class="divide-y divide-slate-100">
+                                <!-- Inserido dinamicamente via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="emptyState" class="p-8 text-center text-slate-400 hidden">
+                        <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+                        Nenhuma atividade cadastrada no cronograma.
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Footer com Direitos Autorais -->
+    <footer class="mt-12 border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <p>© 2026 <strong>Denilson Djones</strong>. Todos os direitos reservados.</p>
+            <p>Desenvolvido por: <a href="mailto:denilsondjones@gmail.com" class="text-blue-600 hover:underline font-medium">denilsondjones@gmail.com</a></p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        const STORAGE_KEY = 'study_schedule_data';
+        let activities = [];
+
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                activities = JSON.parse(stored);
+            } else {
+                activities = [
+                    { subject: 'Cloud Computing', topic: 'Configuração de Redes Virtuais', date: '2026-09-20', hours: 2.0, priority: 'Alta', status: 'Em Andamento' },
+                    { subject: 'DevOps', topic: 'Pipelines CI/CD com GitHub Actions', date: '2026-09-22', hours: 3.5, priority: 'Média', status: 'Pendente' }
+                ];
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(activities));
+            }
+        } catch (e) {
+            console.error('Erro ao carregar LocalStorage:', e);
+            activities = [];
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTable();
+            lucide.createIcons();
+        });
+
+        function saveData() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(activities));
+            } catch (e) {
+                alert('Erro ao salvar dados localmente.');
+            }
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('scheduleTable');
+            const emptyState = document.getElementById('emptyState');
+            tbody.innerHTML = '';
+
+            if (activities.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            let totalHours = 0;
+            let doneCount = 0;
+
+            activities.forEach((act, index) => {
+                totalHours += parseFloat(act.hours || 0);
+                if (act.status === 'Concluído') doneCount++;
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/80 transition';
+                
+                const priorityBadge = {
+                    'Alta': 'bg-rose-100 text-rose-700',
+                    'Média': 'bg-amber-100 text-amber-700',
+                    'Baixa': 'bg-slate-100 text-slate-700'
+                }[act.priority] || 'bg-slate-100';
+
+                const statusBadge = {
+                    'Concluído': 'bg-emerald-100 text-emerald-700',
+                    'Em Andamento': 'bg-blue-100 text-blue-700',
+                    'Pendente': 'bg-slate-100 text-slate-600'
+                }[act.status] || 'bg-slate-100';
+
+                tr.innerHTML = `
+                    <td class="p-4 font-medium text-slate-700">${formatDate(act.date)}</td>
+                    <td class="p-4 font-semibold text-slate-800">${escapeHtml(act.subject)}</td>
+                    <td class="p-4 text-slate-600">${escapeHtml(act.topic)}</td>
+                    <td class="p-4 text-slate-600">${act.hours}h</td>
+                    <td class="p-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${priorityBadge}">${act.priority}</span></td>
+                    <td class="p-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${statusBadge}">${act.status}</span></td>
+                    <td class="p-4 text-right space-x-1">
+                        <button onclick="editActivity(${index})" class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Editar">
+                            <i data-lucide="pencil" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="deleteActivity(${index})" class="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Excluir">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('statTotal').innerText = activities.length;
+            document.getElementById('statHours').innerText = `${totalHours}h`;
+            document.getElementById('statDone').innerText = doneCount;
+
+            lucide.createIcons();
+        }
+
+        function handleSubmit(e) {
+            e.preventDefault();
+            const index = parseInt(document.getElementById('editIndex').value);
+            
+            const newActivity = {
+                subject: document.getElementById('subject').value,
+                topic: document.getElementById('topic').value,
+                date: document.getElementById('date').value,
+                hours: parseFloat(document.getElementById('hours').value),
+                priority: document.getElementById('priority').value,
+                status: document.getElementById('status').value
+            };
+
+            if (index === -1) {
+                activities.push(newActivity);
+            } else {
+                activities[index] = newActivity;
+            }
+
+            saveData();
+            resetForm();
+        }
+
+        function editActivity(index) {
+            const act = activities[index];
+            document.getElementById('editIndex').value = index;
+            document.getElementById('subject').value = act.subject;
+            document.getElementById('topic').value = act.topic;
+            document.getElementById('date').value = act.date;
+            document.getElementById('hours').value = act.hours;
+            document.getElementById('priority').value = act.priority;
+            document.getElementById('status').value = act.status;
+
+            document.getElementById('formTitle').innerHTML = `<i data-lucide="pencil" class="w-5 h-5 text-amber-600"></i> Editar Atividade`;
+            document.getElementById('btnSubmit').className = "flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium py-2 rounded-lg text-sm transition flex justify-center items-center gap-2";
+            document.getElementById('btnCancel').classList.remove('hidden');
+            
+            lucide.createIcons();
+        }
+
+        function resetForm() {
+            document.getElementById('studyForm').reset();
+            document.getElementById('editIndex').value = "-1";
+            document.getElementById('formTitle').innerHTML = `<i data-lucide="plus-circle" class="w-5 h-5 text-blue-600"></i> Nova Atividade`;
+            document.getElementById('btnSubmit').className = "flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition flex justify-center items-center gap-2";
+            document.getElementById('btnCancel').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        function deleteActivity(index) {
+            if (confirm('Deseja realmente remover esta atividade do cronograma?')) {
+                activities.splice(index, 1);
+                saveData();
+            }
+        }
+
+        function exportCSV() {
+            if (activities.length === 0) {
+                alert('Não há dados no cronograma para exportar.');
+                return;
+            }
+
+            const headers = ['Matéria', 'Tópico', 'Data', 'Duração (Horas)', 'Prioridade', 'Status'];
+            const rows = activities.map(act => [
+                `"${act.subject.replace(/"/g, '""')}"`,
+                `"${act.topic.replace(/"/g, '""')}"`,
+                `"${act.date}"`,
+                act.hours,
+                `"${act.priority}"`,
+                `"${act.status}"`
+            ]);
+
+            const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `cronograma_de_estudos_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const [year, month, day] = dateStr.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
