@@ -11,7 +11,7 @@ jobs:
 
     steps:
     - name: Checkout do código
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5
 
     - name: Autenticar no GCP
       uses: google-github-actions/auth@v3
