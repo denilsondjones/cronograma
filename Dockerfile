@@ -1,4 +1,4 @@
-FROM nginx:alpine
+FROM nginxinc/nginx-unprivileged:alpine
 # Copia os arquivos estáticos
 COPY cronograma_estudos.html /usr/share/nginx/html/index.html
 # Remove as configurações padrões do NGINX
