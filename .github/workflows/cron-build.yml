@@ -29,5 +29,5 @@ jobs:
           --min-instances 0 \
           --max-instances 2 \
           --allow-unauthenticated \
-          --port 80 \
+          --port 8080 \
           --quiet
